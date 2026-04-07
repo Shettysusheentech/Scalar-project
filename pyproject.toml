@@ -25,12 +25,13 @@ dependencies = [
 ]
 
 [project.scripts]
-openenv-server = "main:serve"
-nexussocial-moderation = "main:serve"
+server = "server.app:serve"
+openenv-server = "server.app:serve"
+nexussocial-moderation = "server.app:serve"
 
 [project.urls]
 Homepage = "https://huggingface.co/spaces/susheen/patient-triage"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["src*"]
+include = ["src*", "server*"]
