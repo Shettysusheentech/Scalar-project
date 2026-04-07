@@ -13,7 +13,6 @@ dependencies = [
     { name = "jinja2" },
     { name = "openai" },
     { name = "openenv-core" },
-    { name = "openenv" },
     { name = "pydantic" },
     { name = "python-dotenv" },
     { name = "pyyaml" },
@@ -54,10 +53,6 @@ version = "6.0.1"
 
 [[package]]
 name = "openenv-core"
-version = "0.2.0"
-
-[[package]]
-name = "openenv"
 version = "0.2.0"
 
 [[package]]
