@@ -1,3 +1,12 @@
+---
+title: Patient Triage OpenEnv
+emoji: 🏥
+colorFrom: blue
+colorTo: green
+sdk: docker
+pinned: false
+---
+
 # OpenEnv: NexusSocial Content Moderation
 
 A real-world OpenEnv environment designed for training and evaluating AI agents in the domain of content moderation and policy enforcement.
