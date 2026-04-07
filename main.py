@@ -17,6 +17,9 @@ class StepRequest(BaseModel):
     task_id: str
     action: Action
 
+class ResetRequest(BaseModel):
+    task_id: str = "easy_spam_detection"
+
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
@@ -337,6 +340,21 @@ async def get_index():
     </html>
     """
 
+@app.get("/tasks")
+async def list_tasks():
+    return {
+        "tasks": [
+            {"id": t_id, "name": t["name"], "difficulty": t["difficulty"]}
+            for t_id, t in TASKS.items()
+        ]
+    }
+
+@app.post("/reset", response_model=Observation)
+async def reset_env_standard(request: ResetRequest = None, task_id: str = None):
+    t_id = task_id or (request.task_id if request else "easy_spam_detection")
+    envs[t_id] = make(t_id)
+    return envs[t_id].reset()
+
 @app.post("/reset/{task_id}", response_model=Observation)
 async def reset_env(task_id: str):
     envs[task_id] = make(task_id)
@@ -350,9 +368,9 @@ async def step_env(request: StepRequest):
     obs, reward, done, info = envs[request.task_id].step(request.action)
     return {
         "observation": obs,
-        "reward": reward,
+        "reward": reward.score,
         "done": done,
-        "info": info
+        "info": {"explanation": reward.explanation, **info}
     }
 
 @app.get("/state/{task_id}", response_model=State)
