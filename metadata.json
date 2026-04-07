@@ -1,0 +1,5 @@
+{
+  "name": "OpenEnv: Content Moderation AI",
+  "description": "A real-world OpenEnv environment for training AI agents in content moderation and policy enforcement.",
+  "requestFramePermissions": []
+}

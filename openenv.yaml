@@ -1,0 +1,76 @@
+# OpenEnv Specification for NexusSocial Content Moderation
+name: nexussocial_moderation
+version: "1.0.0"
+description: "A real-world content moderation environment for training and evaluating AI safety agents."
+author: "AI Studio Agent"
+license: "MIT"
+
+# Action and Observation Spaces
+action_space:
+  type: "dict"
+  properties:
+    action:
+      type: "string"
+      enum: ["APPROVE", "REJECT", "FLAG", "REQUEST_CONTEXT"]
+    reason:
+      type: "string"
+      description: "A brief justification for the action."
+    category:
+      type: "string"
+      enum: ["SPAM", "HATE_SPEECH", "VIOLENCE", "SAFE", "MISINFORMATION", "OTHER"]
+
+observation_space:
+  type: "dict"
+  properties:
+    ticket_id:
+      type: "string"
+    content:
+      type: "string"
+      description: "The text content of the post to be moderated."
+    metadata:
+      type: "dict"
+      properties:
+        user_reputation:
+          type: "number"
+        report_count:
+          type: "integer"
+    policy_context:
+      type: "string"
+      description: "Relevant snippets from the platform's moderation policy."
+
+# Tasks
+tasks:
+  - id: "easy_spam_detection"
+    name: "Easy: Spam Detection"
+    description: "Identify and reject obvious spam/scam posts."
+    difficulty: "easy"
+    max_steps: 1
+    grader: "src.tasks.SpamGrader"
+
+  - id: "medium_policy_nuance"
+    name: "Medium: Policy Nuance"
+    description: "Handle nuanced hate speech vs. counter-speech based on policy."
+    difficulty: "medium"
+    max_steps: 1
+    grader: "src.tasks.PolicyGrader"
+
+  - id: "hard_context_request"
+    name: "Hard: Contextual Moderation"
+    description: "Identify cases where more context is needed before a final decision."
+    difficulty: "hard"
+    max_steps: 2
+    grader: "src.tasks.ContextGrader"
+
+  - id: "medium_misinformation"
+    name: "Medium: Misinformation"
+    description: "Identify and flag potential misinformation based on provided context."
+    difficulty: "medium"
+    max_steps: 1
+    grader: "src.tasks.PolicyGrader"
+
+  - id: "hard_coordinated_behavior"
+    name: "Hard: Coordinated Behavior"
+    description: "Detect patterns of coordinated inauthentic behavior across multiple reports."
+    difficulty: "hard"
+    max_steps: 2
+    grader: "src.tasks.PolicyGrader"
