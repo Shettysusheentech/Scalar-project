@@ -379,10 +379,10 @@ async def get_state(task_id: str):
         raise HTTPException(status_code=404, detail="Task not initialized")
     return envs[task_id].state()
 
-def serve():
+def main():
     import uvicorn
     port = int(os.environ.get("PORT", 7860))
     uvicorn.run("server.app:app", host="0.0.0.0", port=port, reload=False)
 
 if __name__ == "__main__":
-    serve()
+    main()

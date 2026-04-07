@@ -25,9 +25,9 @@ dependencies = [
 ]
 
 [project.scripts]
-server = "server.app:serve"
-openenv-server = "server.app:serve"
-nexussocial-moderation = "server.app:serve"
+server = "server.app:main"
+openenv-server = "server.app:main"
+nexussocial-moderation = "server.app:main"
 
 [project.urls]
 Homepage = "https://huggingface.co/spaces/susheen/patient-triage"
