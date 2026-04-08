@@ -7,15 +7,19 @@ class Grader(ABC):
     def grade(self, action: Action, ground_truth: Dict[str, Any]) -> Reward:
         pass
 
+    def _clamp(self, score: float) -> float:
+        # Ensure score is strictly between 0 and 1
+        return max(0.01, min(0.99, score))
+
 class SpamGrader(Grader):
     def grade(self, action: Action, ground_truth: Dict[str, Any]) -> Reward:
         if action.action == ActionType.REJECT and action.category == CategoryType.SPAM:
-            return Reward(score=1.0, explanation="Correctly identified and rejected spam.")
+            return Reward(score=self._clamp(1.0), explanation="Correctly identified and rejected spam.")
         elif action.action == ActionType.REJECT:
-            return Reward(score=0.5, explanation="Correctly rejected, but category was wrong.")
+            return Reward(score=self._clamp(0.5), explanation="Correctly rejected, but category was wrong.")
         elif action.category == CategoryType.SPAM:
-            return Reward(score=0.3, explanation="Correctly identified spam, but took the wrong action.")
-        return Reward(score=0.0, explanation="Failed to identify spam.")
+            return Reward(score=self._clamp(0.3), explanation="Correctly identified spam, but took the wrong action.")
+        return Reward(score=self._clamp(0.0), explanation="Failed to identify spam.")
 
 class PolicyGrader(Grader):
     def grade(self, action: Action, ground_truth: Dict[str, Any]) -> Reward:
@@ -35,15 +39,15 @@ class PolicyGrader(Grader):
         if not explanation:
             explanation.append("Incorrect action and category.")
             
-        return Reward(score=score, explanation=" ".join(explanation))
+        return Reward(score=self._clamp(score), explanation=" ".join(explanation))
 
 class ContextGrader(Grader):
     def grade(self, action: Action, ground_truth: Dict[str, Any]) -> Reward:
         if action.action == ActionType.REQUEST_CONTEXT:
-            return Reward(score=1.0, explanation="Correctly identified that more context was needed.")
+            return Reward(score=self._clamp(1.0), explanation="Correctly identified that more context was needed.")
         elif action.action == ActionType.FLAG:
-            return Reward(score=0.4, explanation="Flagging is a safe fallback, but requesting context is better.")
-        return Reward(score=0.0, explanation="Premature decision without sufficient context.")
+            return Reward(score=self._clamp(0.4), explanation="Flagging is a safe fallback, but requesting context is better.")
+        return Reward(score=self._clamp(0.0), explanation="Premature decision without sufficient context.")
 
 # Task definitions
 TASKS = {
