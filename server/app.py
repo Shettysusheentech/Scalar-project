@@ -6,7 +6,7 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from src.env import make
 from src.models import Action, Observation, Reward, State, ActionType, CategoryType
-from src.tasks import TASKS
+from src.tasks import TASKS, clip_score
 
 app = FastAPI(title="OpenEnv: NexusSocial Moderation")
 
@@ -19,6 +19,14 @@ class StepRequest(BaseModel):
 
 class ResetRequest(BaseModel):
     task_id: str = "easy_spam_detection"
+
+
+def get_fresh_env_for_step(task_id: str):
+    env = envs.get(task_id)
+    if env is None or getattr(env, "done", False):
+        env = make(task_id)
+        envs[task_id] = env
+    return env
 
 @app.get("/health")
 async def health_check():
@@ -363,13 +371,11 @@ async def reset_env(task_id: str):
 
 @app.post("/step")
 async def step_env(request: StepRequest):
-    if request.task_id not in envs:
-        envs[request.task_id] = make(request.task_id)
-    
-    obs, reward, done, info = envs[request.task_id].step(request.action)
+    env = get_fresh_env_for_step(request.task_id)
+    obs, reward, done, info = env.step(request.action)
     return {
         "observation": obs,
-        "reward": float(reward.score),
+        "reward": clip_score(reward.score),
         "done": done,
         "info": {**info, "explanation": reward.explanation}
     }
