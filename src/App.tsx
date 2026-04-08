@@ -118,19 +118,23 @@ const TASKS: Task[] = [
 
 // --- Grader Logic ---
 
+const clamp = (score: number): number => {
+  return Math.max(0.01, Math.min(0.99, score));
+};
+
 const gradeAction = (task: Task, action: Action): Reward => {
   if (task.id === 'easy_spam_detection') {
     if (action.action === 'REJECT' && action.category === 'SPAM') {
-      return { score: 1.0, explanation: "Correctly identified and rejected spam." };
+      return { score: clamp(1.0), explanation: "Correctly identified and rejected spam." };
     } else if (action.action === 'REJECT') {
-      return { score: 0.5, explanation: "Correctly rejected, but category was wrong." };
+      return { score: clamp(0.5), explanation: "Correctly rejected, but category was wrong." };
     } else if (action.category === 'SPAM') {
-      return { score: 0.3, explanation: "Correctly identified spam, but took the wrong action." };
+      return { score: clamp(0.3), explanation: "Correctly identified spam, but took the wrong action." };
     }
-    return { score: 0.0, explanation: "Failed to identify spam." };
+    return { score: clamp(0.0), explanation: "Failed to identify spam." };
   }
 
-  if (task.id === 'medium_policy_nuance') {
+  if (task.id === 'medium_policy_nuance' || task.id === 'medium_misinformation' || task.id === 'hard_coordinated_behavior') {
     const { correct_action, correct_category } = task.ground_truth;
     let score = 0;
     let explanation = [];
@@ -144,19 +148,19 @@ const gradeAction = (task: Task, action: Action): Reward => {
       explanation.push("Correct category.");
     }
     if (explanation.length === 0) explanation.push("Incorrect action and category.");
-    return { score, explanation: explanation.join(" ") };
+    return { score: clamp(score), explanation: explanation.join(" ") };
   }
 
   if (task.id === 'hard_context_request') {
     if (action.action === 'REQUEST_CONTEXT') {
-      return { score: 1.0, explanation: "Correctly identified that more context was needed." };
+      return { score: clamp(1.0), explanation: "Correctly identified that more context was needed." };
     } else if (action.action === 'FLAG') {
-      return { score: 0.4, explanation: "Flagging is a safe fallback, but requesting context is better." };
+      return { score: clamp(0.4), explanation: "Flagging is a safe fallback, but requesting context is better." };
     }
-    return { score: 0.0, explanation: "Premature decision without sufficient context." };
+    return { score: clamp(0.0), explanation: "Premature decision without sufficient context." };
   }
 
-  return { score: 0, explanation: "Unknown task." };
+  return { score: clamp(0), explanation: "Unknown task." };
 };
 
 // --- Components ---
