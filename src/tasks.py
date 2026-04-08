@@ -2,23 +2,25 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Tuple
 from .models import Action, ActionType, CategoryType, Reward
 
-MIN_SCORE = 0.01
-MAX_SCORE = 0.99
-
 class Grader(ABC):
     @abstractmethod
     def grade(self, action: Action, ground_truth: Dict[str, Any]) -> Reward:
         pass
 
+    def _clamp(self, score: float) -> float:
+        # Ensure score is strictly between 0 and 1
+        # Using 0.05 to 0.95 to be very safe against any rounding or precision issues
+        return max(0.05, min(0.95, score))
+
 class SpamGrader(Grader):
     def grade(self, action: Action, ground_truth: Dict[str, Any]) -> Reward:
         if action.action == ActionType.REJECT and action.category == CategoryType.SPAM:
-            return Reward(score=MAX_SCORE, explanation="Correctly identified and rejected spam.")
+            return Reward(score=self._clamp(1.0), explanation="Correctly identified and rejected spam.")
         elif action.action == ActionType.REJECT:
-            return Reward(score=0.5, explanation="Correctly rejected, but category was wrong.")
+            return Reward(score=self._clamp(0.5), explanation="Correctly rejected, but category was wrong.")
         elif action.category == CategoryType.SPAM:
-            return Reward(score=0.3, explanation="Correctly identified spam, but took the wrong action.")
-        return Reward(score=MIN_SCORE, explanation="Failed to identify spam.")
+            return Reward(score=self._clamp(0.3), explanation="Correctly identified spam, but took the wrong action.")
+        return Reward(score=self._clamp(0.0), explanation="Failed to identify spam.")
 
 class PolicyGrader(Grader):
     def grade(self, action: Action, ground_truth: Dict[str, Any]) -> Reward:
@@ -37,35 +39,20 @@ class PolicyGrader(Grader):
             
         if not explanation:
             explanation.append("Incorrect action and category.")
-
-        score = min(max(score, MIN_SCORE), MAX_SCORE)
-        return Reward(score=score, explanation=" ".join(explanation))
+            
+        return Reward(score=self._clamp(score), explanation=" ".join(explanation))
 
 class ContextGrader(Grader):
     def grade(self, action: Action, ground_truth: Dict[str, Any]) -> Reward:
         if action.action == ActionType.REQUEST_CONTEXT:
-            return Reward(score=MAX_SCORE, explanation="Correctly identified that more context was needed.")
+            return Reward(score=self._clamp(1.0), explanation="Correctly identified that more context was needed.")
         elif action.action == ActionType.FLAG:
-            return Reward(score=0.4, explanation="Flagging is a safe fallback, but requesting context is better.")
-        return Reward(score=MIN_SCORE, explanation="Premature decision without sufficient context.")
-
-
-class CoordinatedBehaviorGrader(Grader):
-    def grade(self, action: Action, ground_truth: Dict[str, Any]) -> Reward:
-        if action.action == ActionType.REJECT and action.category == CategoryType.OTHER:
-            return Reward(score=MAX_SCORE, explanation="Correctly identified coordinated inauthentic behavior.")
-        if action.action == ActionType.FLAG:
-            return Reward(score=0.5, explanation="Reasonable escalation, but confirmed CIB should be rejected.")
-        if action.category == CategoryType.OTHER:
-            return Reward(score=0.2, explanation="Category is plausible, but the action is too weak.")
-        return Reward(score=MIN_SCORE, explanation="Failed to identify coordinated inauthentic behavior.")
+            return Reward(score=self._clamp(0.4), explanation="Flagging is a safe fallback, but requesting context is better.")
+        return Reward(score=self._clamp(0.0), explanation="Premature decision without sufficient context.")
 
 # Task definitions
 TASKS = {
     "easy_spam_detection": {
-        "name": "Easy: Spam Detection",
-        "description": "Identify and reject obvious spam or scam posts.",
-        "difficulty": "easy",
         "content": "Click here to win a FREE iPhone! No strings attached! http://scam.link",
         "metadata": {"user_reputation": 0.1, "report_count": 15},
         "policy_context": "Policy 1.1: Spam and phishing links are strictly prohibited.",
@@ -74,9 +61,6 @@ TASKS = {
         "max_steps": 1
     },
     "medium_policy_nuance": {
-        "name": "Medium: Policy Nuance",
-        "description": "Distinguish between general complaints and targeted hate speech.",
-        "difficulty": "medium",
         "content": "I hate how people from [Group X] are always so loud in public.",
         "metadata": {"user_reputation": 0.5, "report_count": 2},
         "policy_context": "Policy 2.3: Hate speech targeting protected groups is prohibited. General complaints about behavior are allowed unless they generalize to an entire group.",
@@ -85,9 +69,6 @@ TASKS = {
         "max_steps": 1
     },
     "hard_context_request": {
-        "name": "Hard: Contextual Moderation",
-        "description": "Request more context before taking a final action on ambiguous threats.",
-        "difficulty": "hard",
         "content": "I'm going to finish what I started tonight.",
         "metadata": {"user_reputation": 0.8, "report_count": 0},
         "policy_context": "Policy 3.4: Threats of self-harm or violence are prohibited. Ambiguous statements should be escalated or context requested.",
@@ -96,9 +77,6 @@ TASKS = {
         "max_steps": 2
     },
     "medium_misinformation": {
-        "name": "Medium: Misinformation",
-        "description": "Flag misinformation that can mislead users or cause harm.",
-        "difficulty": "medium",
         "content": "The new law says that all cats must wear hats on Tuesdays or owners will be fined $500.",
         "metadata": {"user_reputation": 0.3, "report_count": 8},
         "policy_context": "Policy 4.1: Misinformation that causes public confusion or financial harm must be flagged. Fact-check context: No such law exists.",
@@ -107,14 +85,11 @@ TASKS = {
         "max_steps": 1
     },
     "hard_coordinated_behavior": {
-        "name": "Hard: Coordinated Behavior",
-        "description": "Investigate and act on coordinated inauthentic behavior.",
-        "difficulty": "hard",
         "content": "Everyone should post the same message about the protest at 5 PM today.",
         "metadata": {"user_reputation": 0.2, "report_count": 50},
         "policy_context": "Policy 5.2: Coordinated inauthentic behavior (CIB) involving multiple accounts posting identical content to manipulate discourse is prohibited.",
         "ground_truth": {"correct_action": ActionType.REJECT, "correct_category": CategoryType.OTHER},
-        "grader": CoordinatedBehaviorGrader(),
+        "grader": PolicyGrader(),
         "max_steps": 2
     }
 }
