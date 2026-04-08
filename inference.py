@@ -28,13 +28,7 @@ def log_start(task_id: str):
     sys.stdout.flush()
 
 
-def log_step(step: int, action: Dict[str, Any], reward: float, done: bool):
-    reward = clip_score(reward)
-    print(f"[STEP] {json.dumps({'step': step, 'action': action, 'reward': reward, 'done': done})}")
-    sys.stdout.flush()
-
-
-def log_end(task_id: str, score: float, total_reward: float):
+def log_end(task_id: str, score: float):
     print(f"[END] {json.dumps({'task_id': task_id, 'score': clip_score(score)})}")
     sys.stdout.flush()
 
@@ -122,11 +116,10 @@ def run_task(task_id: str) -> float:
 
         reward = clip_score(reward_obj.score)
         total_reward += reward
-        log_step(step_count, action.model_dump(), reward, done)
 
     final_score = clip_score(total_reward / max(1, step_count))
 
-    log_end(task_id, final_score, total_reward)
+    log_end(task_id, final_score)
     return final_score
 
 
