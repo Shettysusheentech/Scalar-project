@@ -47,7 +47,7 @@ class NexusSocialEnv:
         if self.task_id == "hard_context_request" and self.current_step == 1:
             if action.action == ActionType.REQUEST_CONTEXT:
                 reward = Reward(
-                    score=0.5,
+                    score=0.49,
                     explanation="Correct first move: more context is needed before taking action.",
                 )
                 self.current_observation = Observation(
@@ -67,7 +67,7 @@ class NexusSocialEnv:
         if self.task_id == "hard_context_request" and self.current_step == 2:
             if action.action == ActionType.APPROVE and action.category == CategoryType.SAFE:
                 reward = Reward(
-                    score=0.5,
+                    score=0.49,
                     explanation="Correctly cleared the post after the benign gaming context was revealed.",
                 )
             elif action.action == ActionType.FLAG:
@@ -77,7 +77,7 @@ class NexusSocialEnv:
                 )
             else:
                 reward = Reward(
-                    score=0.0,
+                    score=0.01,
                     explanation="The follow-up action did not match the clarified benign context.",
                 )
             return self._finish(reward)
@@ -85,7 +85,7 @@ class NexusSocialEnv:
         if self.task_id == "hard_coordinated_behavior" and self.current_step == 1:
             if action.action == ActionType.FLAG:
                 reward = Reward(
-                    score=0.4,
+                    score=0.39,
                     explanation="Good first move: escalate the post while gathering evidence of coordination.",
                 )
                 self.current_observation = Observation(
@@ -107,12 +107,12 @@ class NexusSocialEnv:
         if self.task_id == "hard_coordinated_behavior" and self.current_step == 2:
             if action.action == ActionType.REJECT and action.category == CategoryType.OTHER:
                 reward = Reward(
-                    score=0.6,
+                    score=0.59,
                     explanation="Correctly rejected the content after the investigation confirmed coordinated behavior.",
                 )
             else:
                 reward = Reward(
-                    score=0.0,
+                    score=0.01,
                     explanation="The follow-up action did not address the confirmed coordinated behavior.",
                 )
             return self._finish(reward)

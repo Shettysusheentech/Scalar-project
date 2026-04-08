@@ -48,6 +48,9 @@ interface Reward {
   explanation: string;
 }
 
+const MIN_SCORE = 0.01;
+const MAX_SCORE = 0.99;
+
 interface Task {
   id: string;
   name: string;
@@ -120,13 +123,13 @@ const TASKS: Task[] = [
 const gradeAction = (task: Task, action: Action, stepCount: number): Reward => {
   if (task.id === 'easy_spam_detection') {
     if (action.action === 'REJECT' && action.category === 'SPAM') {
-      return { score: 1.0, explanation: "Correctly identified and rejected spam." };
+      return { score: MAX_SCORE, explanation: "Correctly identified and rejected spam." };
     } else if (action.action === 'REJECT') {
       return { score: 0.5, explanation: "Correctly rejected, but category was wrong." };
     } else if (action.category === 'SPAM') {
       return { score: 0.3, explanation: "Correctly identified spam, but took the wrong action." };
     }
-    return { score: 0.0, explanation: "Failed to identify spam." };
+    return { score: MIN_SCORE, explanation: "Failed to identify spam." };
   }
 
   if (task.id === 'medium_policy_nuance') {
@@ -143,25 +146,26 @@ const gradeAction = (task: Task, action: Action, stepCount: number): Reward => {
       explanation.push("Correct category.");
     }
     if (explanation.length === 0) explanation.push("Incorrect action and category.");
+    score = Math.min(Math.max(score, MIN_SCORE), MAX_SCORE);
     return { score, explanation: explanation.join(" ") };
   }
 
   if (task.id === 'hard_context_request') {
     if (stepCount === 0) {
       if (action.action === 'REQUEST_CONTEXT') {
-        return { score: 0.5, explanation: "Correct first move: more context is needed before taking action." };
+        return { score: 0.49, explanation: "Correct first move: more context is needed before taking action." };
       } else if (action.action === 'FLAG') {
         return { score: 0.2, explanation: "Escalation is cautious, but requesting context was the preferred first step." };
       }
-      return { score: 0.0, explanation: "Premature decision without sufficient context." };
+      return { score: MIN_SCORE, explanation: "Premature decision without sufficient context." };
     }
 
     if (action.action === 'APPROVE' && action.category === 'SAFE') {
-      return { score: 0.5, explanation: "Correctly cleared the post after the benign gaming context was revealed." };
+      return { score: 0.49, explanation: "Correctly cleared the post after the benign gaming context was revealed." };
     } else if (action.action === 'FLAG') {
       return { score: 0.2, explanation: "Still too cautious after the follow-up context clarified the post." };
     }
-    return { score: 0.0, explanation: "The follow-up action did not match the clarified benign context." };
+    return { score: MIN_SCORE, explanation: "The follow-up action did not match the clarified benign context." };
   }
 
   if (task.id === 'medium_misinformation') {
@@ -178,13 +182,14 @@ const gradeAction = (task: Task, action: Action, stepCount: number): Reward => {
       explanation.push("Correct category.");
     }
     if (explanation.length === 0) explanation.push("Incorrect action and category.");
+    score = Math.min(Math.max(score, MIN_SCORE), MAX_SCORE);
     return { score, explanation: explanation.join(" ") };
   }
 
   if (task.id === 'hard_coordinated_behavior') {
     if (stepCount === 0) {
       if (action.action === 'FLAG') {
-        return { score: 0.4, explanation: "Good first move: escalate the post while gathering evidence of coordination." };
+        return { score: 0.39, explanation: "Good first move: escalate the post while gathering evidence of coordination." };
       }
       if (action.action === 'REJECT' && action.category === 'OTHER') {
         return { score: 0.7, explanation: "The final action is right, but the task expected an investigation step first." };
@@ -192,16 +197,16 @@ const gradeAction = (task: Task, action: Action, stepCount: number): Reward => {
       if (action.category === 'OTHER') {
         return { score: 0.2, explanation: "Category is plausible, but the action is too weak." };
       }
-      return { score: 0.0, explanation: "Failed to identify coordinated inauthentic behavior." };
+      return { score: MIN_SCORE, explanation: "Failed to identify coordinated inauthentic behavior." };
     }
 
     if (action.action === 'REJECT' && action.category === 'OTHER') {
-      return { score: 0.6, explanation: "Correctly rejected the content after the investigation confirmed coordinated behavior." };
+      return { score: 0.59, explanation: "Correctly rejected the content after the investigation confirmed coordinated behavior." };
     }
-    return { score: 0.0, explanation: "The follow-up action did not address the confirmed coordinated behavior." };
+    return { score: MIN_SCORE, explanation: "The follow-up action did not address the confirmed coordinated behavior." };
   }
 
-  return { score: 0.0, explanation: "Unknown task." };
+  return { score: MIN_SCORE, explanation: "Unknown task." };
 };
 
 const getFollowUpObservation = (task: Task, action: Action, stepCount: number): Observation | null => {
@@ -653,7 +658,7 @@ class NexusSocialEnv:
         if action.action == ActionType.REQUEST_CONTEXT:
             self.current_observation = Observation(...)
             return self.current_observation, Reward(score=0.5, explanation="Need more context"), False, {}
-        return self.current_observation, Reward(score=1.0, explanation="Resolved"), True, {}
+        return self.current_observation, Reward(score=0.99, explanation="Resolved"), True, {}
 
 # openenv.yaml
 name: nexussocial_moderation

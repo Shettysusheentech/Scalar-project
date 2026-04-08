@@ -2,6 +2,9 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Tuple
 from .models import Action, ActionType, CategoryType, Reward
 
+MIN_SCORE = 0.01
+MAX_SCORE = 0.99
+
 class Grader(ABC):
     @abstractmethod
     def grade(self, action: Action, ground_truth: Dict[str, Any]) -> Reward:
@@ -10,12 +13,12 @@ class Grader(ABC):
 class SpamGrader(Grader):
     def grade(self, action: Action, ground_truth: Dict[str, Any]) -> Reward:
         if action.action == ActionType.REJECT and action.category == CategoryType.SPAM:
-            return Reward(score=1.0, explanation="Correctly identified and rejected spam.")
+            return Reward(score=MAX_SCORE, explanation="Correctly identified and rejected spam.")
         elif action.action == ActionType.REJECT:
             return Reward(score=0.5, explanation="Correctly rejected, but category was wrong.")
         elif action.category == CategoryType.SPAM:
             return Reward(score=0.3, explanation="Correctly identified spam, but took the wrong action.")
-        return Reward(score=0.0, explanation="Failed to identify spam.")
+        return Reward(score=MIN_SCORE, explanation="Failed to identify spam.")
 
 class PolicyGrader(Grader):
     def grade(self, action: Action, ground_truth: Dict[str, Any]) -> Reward:
@@ -34,27 +37,28 @@ class PolicyGrader(Grader):
             
         if not explanation:
             explanation.append("Incorrect action and category.")
-            
+
+        score = min(max(score, MIN_SCORE), MAX_SCORE)
         return Reward(score=score, explanation=" ".join(explanation))
 
 class ContextGrader(Grader):
     def grade(self, action: Action, ground_truth: Dict[str, Any]) -> Reward:
         if action.action == ActionType.REQUEST_CONTEXT:
-            return Reward(score=1.0, explanation="Correctly identified that more context was needed.")
+            return Reward(score=MAX_SCORE, explanation="Correctly identified that more context was needed.")
         elif action.action == ActionType.FLAG:
             return Reward(score=0.4, explanation="Flagging is a safe fallback, but requesting context is better.")
-        return Reward(score=0.0, explanation="Premature decision without sufficient context.")
+        return Reward(score=MIN_SCORE, explanation="Premature decision without sufficient context.")
 
 
 class CoordinatedBehaviorGrader(Grader):
     def grade(self, action: Action, ground_truth: Dict[str, Any]) -> Reward:
         if action.action == ActionType.REJECT and action.category == CategoryType.OTHER:
-            return Reward(score=1.0, explanation="Correctly identified coordinated inauthentic behavior.")
+            return Reward(score=MAX_SCORE, explanation="Correctly identified coordinated inauthentic behavior.")
         if action.action == ActionType.FLAG:
             return Reward(score=0.5, explanation="Reasonable escalation, but confirmed CIB should be rejected.")
         if action.category == CategoryType.OTHER:
             return Reward(score=0.2, explanation="Category is plausible, but the action is too weak.")
-        return Reward(score=0.0, explanation="Failed to identify coordinated inauthentic behavior.")
+        return Reward(score=MIN_SCORE, explanation="Failed to identify coordinated inauthentic behavior.")
 
 # Task definitions
 TASKS = {
