@@ -22,7 +22,7 @@ class StepRequest(BaseModel):
 
 class StepResponse(BaseModel):
     observation: Observation
-    reward: Reward
+    reward: float
     done: bool
     info: Dict[str, Any]
 
@@ -84,13 +84,6 @@ def serialize_model(value: Any) -> Any:
     if hasattr(value, "model_dump"):
         return value.model_dump()
     return value
-
-
-def serialize_reward(reward: Reward) -> Dict[str, Any]:
-    return {
-        "score": clip_score(reward.score),
-        "explanation": reward.explanation,
-    }
 
 
 @app.get("/health")
@@ -163,7 +156,7 @@ async def websocket_env(ws: WebSocket):
                             "observation": serialize_model(observation),
                             "reward": clip_score(reward.score),
                             "done": done,
-                            "info": info,
+                            "info": {**info, "explanation": reward.explanation},
                         },
                     }
                 )
@@ -379,8 +372,8 @@ async def get_index():
                 }});
                 const result = await response.json();
                 document.getElementById('result-view').classList.remove('hidden');
-                document.getElementById('reward-score').textContent = String(result.reward.score);
-                document.getElementById('reward-explanation').textContent = result.reward.explanation;
+                document.getElementById('reward-score').textContent = String(result.reward);
+                document.getElementById('reward-explanation').textContent = result.info?.explanation || '';
                 document.getElementById('done-flag').textContent = String(result.done);
                 updateObservation(result.observation);
             }}
@@ -434,9 +427,9 @@ async def step_env(request: StepRequest):
 
     return {
         "observation": observation,
-        "reward": serialize_reward(reward),
+        "reward": clip_score(reward.score),
         "done": done,
-        "info": info,
+        "info": {**info, "explanation": reward.explanation},
     }
 
 
