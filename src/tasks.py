@@ -2,9 +2,8 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Tuple
 from .models import Action, ActionType, CategoryType, Reward
 
-EPSILON = 1e-7
-MIN_SCORE = EPSILON
-MAX_SCORE = 1.0 - EPSILON
+MIN_SCORE = 0.01
+MAX_SCORE = 0.99
 
 
 def clip_score(score: float) -> float:
