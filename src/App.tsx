@@ -118,10 +118,12 @@ const TASKS: Task[] = [
 
 // --- Grader Logic ---
 
+const EPSILON = 1e-7;
+
 const clamp = (score: number): number => {
-  if (score >= 0.99) return 0.99;
-  if (score <= 0.01) return 0.01;
-  return Math.round(score * 100) / 100;
+  if (score >= 1 - EPSILON) return 1 - EPSILON;
+  if (score <= EPSILON) return EPSILON;
+  return Math.min(1 - EPSILON, Math.max(EPSILON, Math.round(score * 100) / 100));
 };
 
 const gradeAction = (task: Task, action: Action): Reward => {
