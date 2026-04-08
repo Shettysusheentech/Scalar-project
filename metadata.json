@@ -1,5 +1,5 @@
 {
-  "name": "NexusSocial Moderation OpenEnv",
-  "description": "An OpenEnv-compatible content moderation environment with a FastAPI dashboard and multi-step moderation tasks.",
+  "name": "OpenEnv: Content Moderation AI",
+  "description": "A real-world OpenEnv environment for training AI agents in content moderation and policy enforcement.",
   "requestFramePermissions": []
 }
