@@ -1,7 +1,8 @@
+import json
 import os
 from typing import Any, Dict, Optional
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
@@ -71,9 +72,128 @@ def get_or_create_env(task_id: str):
     return env
 
 
+def serialize_model(value: Any) -> Any:
+    if hasattr(value, "model_dump"):
+        return value.model_dump()
+    return value
+
+
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
+
+
+@app.websocket("/ws")
+async def websocket_env(ws: WebSocket):
+    await ws.accept()
+    current_task_id = "easy_spam_detection"
+    env = build_env(current_task_id)
+
+    try:
+        while True:
+            raw = await ws.receive_text()
+            message = json.loads(raw)
+            msg_type = message.get("type")
+            data = message.get("data", {}) or {}
+
+            if msg_type == "close":
+                await ws.send_json({"type": "result", "data": {"closed": True}})
+                await ws.close()
+                return
+
+            if msg_type == "reset":
+                requested_task_id = (
+                    data.get("task_id")
+                    or data.get("task")
+                    or data.get("taskId")
+                    or current_task_id
+                )
+                current_task_id = requested_task_id
+                env = build_env(current_task_id)
+                envs[current_task_id] = env
+                observation = env.reset()
+                await ws.send_json(
+                    {
+                        "type": "result",
+                        "data": {
+                            "observation": serialize_model(observation),
+                            "reward": None,
+                            "done": False,
+                        },
+                    }
+                )
+                continue
+
+            if msg_type == "step":
+                requested_task_id = (
+                    data.get("task_id")
+                    or data.get("task")
+                    or data.get("taskId")
+                    or current_task_id
+                )
+                if requested_task_id != current_task_id:
+                    current_task_id = requested_task_id
+                    env = get_or_create_env(current_task_id)
+
+                if isinstance(data.get("action"), dict):
+                    action_payload = data["action"]
+                else:
+                    action_payload = data
+                action = Action(**action_payload)
+                observation, reward, done, info = env.step(action)
+                await ws.send_json(
+                    {
+                        "type": "result",
+                        "data": {
+                            "observation": serialize_model(observation),
+                            "reward": float(reward.score),
+                            "done": done,
+                            "info": info,
+                        },
+                    }
+                )
+                continue
+
+            if msg_type == "state":
+                state = env.state()
+                await ws.send_json(
+                    {
+                        "type": "result",
+                        "data": {
+                            "episode_id": current_task_id,
+                            "step_count": len(state.history),
+                            "current_ticket_id": state.current_ticket_id,
+                            "history": state.history,
+                            "done": state.done,
+                        },
+                    }
+                )
+                continue
+
+            await ws.send_json(
+                {
+                    "type": "error",
+                    "data": {
+                        "code": "UNKNOWN_MESSAGE_TYPE",
+                        "message": f"Unsupported message type: {msg_type}",
+                    },
+                }
+            )
+    except WebSocketDisconnect:
+        return
+    except Exception as exc:
+        try:
+            await ws.send_json(
+                {
+                    "type": "error",
+                    "data": {
+                        "code": "SERVER_ERROR",
+                        "message": str(exc),
+                    },
+                }
+            )
+        finally:
+            await ws.close()
 
 
 @app.get("/", response_class=HTMLResponse)
