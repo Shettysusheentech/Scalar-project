@@ -30,12 +30,12 @@ def log_start(task_id: str):
 
 def log_step(step: int, action: Dict[str, Any], reward: float, done: bool):
     reward = clip_score(reward)
-    print(f"[STEP] {json.dumps({'step': step, 'action': action, 'reward': reward, 'score': reward, 'done': done})}")
+    print(f"[STEP] {json.dumps({'step': step, 'action': action, 'reward': reward, 'done': done})}")
     sys.stdout.flush()
 
 
 def log_end(task_id: str, score: float, total_reward: float):
-    print(f"[END] {json.dumps({'task_id': task_id, 'score': clip_score(score), 'total_reward': clip_score(total_reward)})}")
+    print(f"[END] {json.dumps({'task_id': task_id, 'score': clip_score(score)})}")
     sys.stdout.flush()
 
 
@@ -147,4 +147,4 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"Failed to run task {task}: {str(e)}", file=sys.stderr)
 
-    print(f"\nOverall Score: {overall_score / len(tasks):.2f}")
+    print(f"\nCompleted {len(tasks)} tasks.", file=sys.stderr)
