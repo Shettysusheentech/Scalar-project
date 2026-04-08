@@ -8,7 +8,7 @@ from src.models import Action, ActionType, CategoryType
 
 # Environment Variables
 API_BASE_URL = os.environ.get("API_BASE_URL", "https://api.openai.com/v1")
-MODEL_NAME = os.environ.get("MODEL_NAME", "gpt-4")
+MODEL_NAME = os.environ.get("MODEL_NAME", "gpt-4o-mini")
 HF_TOKEN = os.environ.get("HF_TOKEN", "")
 
 # Initialize OpenAI Client
@@ -49,7 +49,7 @@ def run_task(task_id: str) -> float:
         
         Ticket ID: {observation.ticket_id}
         Content: {observation.content}
-        Metadata: {observation.metadata.dict()}
+        Metadata: {observation.metadata.model_dump()}
         Policy Context: {observation.policy_context}
         
         Respond in JSON format with the following fields:
@@ -75,7 +75,7 @@ def run_task(task_id: str) -> float:
             reward = reward_obj.score
             total_reward += reward
             
-            log_step(step_count, action.dict(), reward, done)
+            log_step(step_count, action.model_dump(), reward, done)
             
         except Exception as e:
             print(f"Error in step {step_count}: {str(e)}", file=sys.stderr)

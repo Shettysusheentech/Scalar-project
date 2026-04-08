@@ -32,7 +32,7 @@ class Observation(BaseModel):
     policy_context: str
 
 class Reward(BaseModel):
-    score: float = Field(..., gt=0.0, lt=1.0)
+    score: float = Field(..., ge=0.0, le=1.0)
     explanation: str
 
 class State(BaseModel):

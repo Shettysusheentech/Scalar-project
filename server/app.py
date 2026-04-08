@@ -1,11 +1,10 @@
 import os
-import json
-from typing import Dict, Any, List
+from typing import Dict, Any, Optional
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from src.env import make
-from src.models import Action, Observation, Reward, State, ActionType, CategoryType
+from src.models import Action, Observation, Reward, State
 from src.tasks import TASKS
 
 app = FastAPI(title="OpenEnv: NexusSocial Moderation")
@@ -19,6 +18,20 @@ class StepRequest(BaseModel):
 
 class ResetRequest(BaseModel):
     task_id: str = "easy_spam_detection"
+
+
+class StepResponse(BaseModel):
+    observation: Observation
+    reward: Reward
+    done: bool
+    info: Dict[str, Any]
+
+
+def build_env(task_id: str):
+    try:
+        return make(task_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 @app.get("/health")
 async def health_check():
@@ -131,6 +144,26 @@ async def get_index():
                         <p class="text-sm text-slate-400 mt-2 mb-6 leading-relaxed">Recognize ambiguous threats that require multi-step investigation.</p>
                         <button onclick="loadTask('hard_context_request')" class="w-full bg-slate-800 text-white py-2.5 rounded-xl font-semibold hover:bg-slate-700 border border-slate-700 transition-all active:scale-95">Initialize Task</button>
                     </div>
+
+                    <!-- Medium -->
+                    <div class="glass p-6 rounded-2xl group hover:border-indigo-500/50 transition-all duration-300">
+                        <div class="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center mb-4 border border-amber-500/20">
+                            <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        </div>
+                        <h3 class="text-lg font-bold text-white group-hover:text-indigo-300 transition-colors">Misinformation</h3>
+                        <p class="text-sm text-slate-400 mt-2 mb-6 leading-relaxed">Flag harmful misinformation using the supplied fact-check context.</p>
+                        <button onclick="loadTask('medium_misinformation')" class="w-full bg-slate-800 text-white py-2.5 rounded-xl font-semibold hover:bg-slate-700 border border-slate-700 transition-all active:scale-95">Initialize Task</button>
+                    </div>
+
+                    <!-- Hard -->
+                    <div class="glass p-6 rounded-2xl group hover:border-indigo-500/50 transition-all duration-300">
+                        <div class="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center mb-4 border border-rose-500/20">
+                            <svg class="w-5 h-5 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M12 6v6l4 2"></path></svg>
+                        </div>
+                        <h3 class="text-lg font-bold text-white group-hover:text-indigo-300 transition-colors">Coordinated Behavior</h3>
+                        <p class="text-sm text-slate-400 mt-2 mb-6 leading-relaxed">Investigate and act on signs of coordinated inauthentic behavior.</p>
+                        <button onclick="loadTask('hard_coordinated_behavior')" class="w-full bg-slate-800 text-white py-2.5 rounded-xl font-semibold hover:bg-slate-700 border border-slate-700 transition-all active:scale-95">Initialize Task</button>
+                    </div>
                 </div>
             </section>
             
@@ -200,7 +233,7 @@ async def get_index():
                                 <label class="text-xs font-semibold text-slate-400">Justification / Reason</label>
                                 <input id="reason-input" type="text" class="w-full rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all" placeholder="Enter reasoning for audit trail...">
                             </div>
-                            <button onclick="submitAction()" class="btn-primary mt-8 w-full text-white py-4 rounded-2xl font-bold text-lg shadow-xl active:scale-[0.98]">
+                            <button id="step-button" onclick="submitAction(event)" class="btn-primary mt-8 w-full text-white py-4 rounded-2xl font-bold text-lg shadow-xl active:scale-[0.98]">
                                 Execute Moderation Step
                             </button>
                         </div>
@@ -263,6 +296,12 @@ async def get_index():
         <script>
             let currentTaskId = null;
             
+            function updateObservation(obs) {{
+                document.getElementById('post-content').innerText = obs.content;
+                document.getElementById('post-metadata').innerText = JSON.stringify(obs.metadata, null, 2);
+                document.getElementById('policy-context').innerText = obs.policy_context;
+            }}
+
             async function loadTask(taskId) {{
                 currentTaskId = taskId;
                 
@@ -276,17 +315,18 @@ async def get_index():
                 document.getElementById('result-view').classList.add('hidden');
                 
                 document.getElementById('task-title').innerText = "Scenario: " + taskId.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-                document.getElementById('post-content').innerText = obs.content;
-                document.getElementById('post-metadata').innerText = JSON.stringify(obs.metadata, null, 2);
-                document.getElementById('policy-context').innerText = obs.policy_context;
+                updateObservation(obs);
                 
                 // Reset inputs
+                document.getElementById('action-select').value = "APPROVE";
+                document.getElementById('category-select').value = "SAFE";
                 document.getElementById('reason-input').value = "";
+                document.getElementById('step-button').innerText = "Execute Moderation Step";
                 
                 window.scrollTo({{ top: document.getElementById('task-view').offsetTop - 40, behavior: 'smooth' }});
             }}
             
-            async function submitAction() {{
+            async function submitAction(event) {{
                 const btn = event.target;
                 const originalText = btn.innerText;
                 btn.innerText = "Processing...";
@@ -311,6 +351,7 @@ async def get_index():
                     document.getElementById('result-view').classList.remove('hidden');
                     document.getElementById('reward-score').innerText = result.reward.score.toFixed(2);
                     document.getElementById('reward-explanation').innerText = result.reward.explanation;
+                    updateObservation(result.observation);
                     
                     const scoreEl = document.getElementById('reward-score');
                     if (result.reward.score >= 0.8) {{
@@ -320,13 +361,19 @@ async def get_index():
                     }} else {{
                         scoreEl.className = "text-6xl font-black tracking-tighter text-rose-400";
                     }}
+
+                    if (!result.done) {{
+                        document.getElementById('reward-explanation').innerText = `${{result.reward.explanation}} ${{result.info.message || 'Review the new context and continue.'}}`;
+                        btn.innerText = "Continue Investigation";
+                    }} else {{
+                        btn.innerText = originalText;
+                    }}
                     
                     window.scrollTo({{ top: document.getElementById('result-view').offsetTop - 40, behavior: 'smooth' }});
                 }} catch (e) {{
                     console.error(e);
                     alert("Error submitting action. Check console.");
                 }} finally {{
-                    btn.innerText = originalText;
                     btn.disabled = false;
                     btn.classList.remove('opacity-50');
                 }}
@@ -344,33 +391,42 @@ async def get_index():
 async def list_tasks():
     return {
         "tasks": [
-            {"id": t_id, "name": t["name"], "difficulty": t["difficulty"]}
+            {
+                "id": t_id,
+                "name": t["name"],
+                "description": t["description"],
+                "difficulty": t["difficulty"],
+            }
             for t_id, t in TASKS.items()
         ]
     }
 
 @app.post("/reset", response_model=Observation)
-async def reset_env_standard(request: ResetRequest = None, task_id: str = None):
+async def reset_env_standard(request: Optional[ResetRequest] = None, task_id: Optional[str] = None):
     t_id = task_id or (request.task_id if request else "easy_spam_detection")
-    envs[t_id] = make(t_id)
+    envs[t_id] = build_env(t_id)
     return envs[t_id].reset()
 
 @app.post("/reset/{task_id}", response_model=Observation)
 async def reset_env(task_id: str):
-    envs[task_id] = make(task_id)
+    envs[task_id] = build_env(task_id)
     return envs[task_id].reset()
 
-@app.post("/step")
+@app.post("/step", response_model=StepResponse)
 async def step_env(request: StepRequest):
     if request.task_id not in envs:
-        envs[request.task_id] = make(request.task_id)
-    
-    obs, reward, done, info = envs[request.task_id].step(request.action)
+        envs[request.task_id] = build_env(request.task_id)
+
+    try:
+        obs, reward, done, info = envs[request.task_id].step(request.action)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
     return {
         "observation": obs,
         "reward": reward,
         "done": done,
-        "info": info
+        "info": info,
     }
 
 @app.get("/state/{task_id}", response_model=State)

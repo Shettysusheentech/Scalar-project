@@ -3,12 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   Shield, 
   AlertTriangle, 
   CheckCircle, 
-  HelpCircle, 
   ChevronRight, 
   RefreshCw, 
   Code, 
@@ -118,23 +117,19 @@ const TASKS: Task[] = [
 
 // --- Grader Logic ---
 
-const clamp = (score: number): number => {
-  return Math.max(0.01, Math.min(0.99, score));
-};
-
-const gradeAction = (task: Task, action: Action): Reward => {
+const gradeAction = (task: Task, action: Action, stepCount: number): Reward => {
   if (task.id === 'easy_spam_detection') {
     if (action.action === 'REJECT' && action.category === 'SPAM') {
-      return { score: clamp(1.0), explanation: "Correctly identified and rejected spam." };
+      return { score: 1.0, explanation: "Correctly identified and rejected spam." };
     } else if (action.action === 'REJECT') {
-      return { score: clamp(0.5), explanation: "Correctly rejected, but category was wrong." };
+      return { score: 0.5, explanation: "Correctly rejected, but category was wrong." };
     } else if (action.category === 'SPAM') {
-      return { score: clamp(0.3), explanation: "Correctly identified spam, but took the wrong action." };
+      return { score: 0.3, explanation: "Correctly identified spam, but took the wrong action." };
     }
-    return { score: clamp(0.0), explanation: "Failed to identify spam." };
+    return { score: 0.0, explanation: "Failed to identify spam." };
   }
 
-  if (task.id === 'medium_policy_nuance' || task.id === 'medium_misinformation' || task.id === 'hard_coordinated_behavior') {
+  if (task.id === 'medium_policy_nuance') {
     const { correct_action, correct_category } = task.ground_truth;
     let score = 0;
     let explanation = [];
@@ -148,19 +143,89 @@ const gradeAction = (task: Task, action: Action): Reward => {
       explanation.push("Correct category.");
     }
     if (explanation.length === 0) explanation.push("Incorrect action and category.");
-    return { score: clamp(score), explanation: explanation.join(" ") };
+    return { score, explanation: explanation.join(" ") };
   }
 
   if (task.id === 'hard_context_request') {
-    if (action.action === 'REQUEST_CONTEXT') {
-      return { score: clamp(1.0), explanation: "Correctly identified that more context was needed." };
-    } else if (action.action === 'FLAG') {
-      return { score: clamp(0.4), explanation: "Flagging is a safe fallback, but requesting context is better." };
+    if (stepCount === 0) {
+      if (action.action === 'REQUEST_CONTEXT') {
+        return { score: 0.5, explanation: "Correct first move: more context is needed before taking action." };
+      } else if (action.action === 'FLAG') {
+        return { score: 0.2, explanation: "Escalation is cautious, but requesting context was the preferred first step." };
+      }
+      return { score: 0.0, explanation: "Premature decision without sufficient context." };
     }
-    return { score: clamp(0.0), explanation: "Premature decision without sufficient context." };
+
+    if (action.action === 'APPROVE' && action.category === 'SAFE') {
+      return { score: 0.5, explanation: "Correctly cleared the post after the benign gaming context was revealed." };
+    } else if (action.action === 'FLAG') {
+      return { score: 0.2, explanation: "Still too cautious after the follow-up context clarified the post." };
+    }
+    return { score: 0.0, explanation: "The follow-up action did not match the clarified benign context." };
   }
 
-  return { score: clamp(0), explanation: "Unknown task." };
+  if (task.id === 'medium_misinformation') {
+    const { correct_action, correct_category } = task.ground_truth;
+    let score = 0;
+    const explanation = [];
+
+    if (action.action === correct_action) {
+      score += 0.6;
+      explanation.push("Correct action.");
+    }
+    if (action.category === correct_category) {
+      score += 0.4;
+      explanation.push("Correct category.");
+    }
+    if (explanation.length === 0) explanation.push("Incorrect action and category.");
+    return { score, explanation: explanation.join(" ") };
+  }
+
+  if (task.id === 'hard_coordinated_behavior') {
+    if (stepCount === 0) {
+      if (action.action === 'FLAG') {
+        return { score: 0.4, explanation: "Good first move: escalate the post while gathering evidence of coordination." };
+      }
+      if (action.action === 'REJECT' && action.category === 'OTHER') {
+        return { score: 0.7, explanation: "The final action is right, but the task expected an investigation step first." };
+      }
+      if (action.category === 'OTHER') {
+        return { score: 0.2, explanation: "Category is plausible, but the action is too weak." };
+      }
+      return { score: 0.0, explanation: "Failed to identify coordinated inauthentic behavior." };
+    }
+
+    if (action.action === 'REJECT' && action.category === 'OTHER') {
+      return { score: 0.6, explanation: "Correctly rejected the content after the investigation confirmed coordinated behavior." };
+    }
+    return { score: 0.0, explanation: "The follow-up action did not address the confirmed coordinated behavior." };
+  }
+
+  return { score: 0.0, explanation: "Unknown task." };
+};
+
+const getFollowUpObservation = (task: Task, action: Action, stepCount: number): Observation | null => {
+  if (stepCount !== 0) return null;
+
+  if (task.id === 'hard_context_request' && action.action === 'REQUEST_CONTEXT') {
+    return {
+      ticket_id: 'TKT-CONTEXT',
+      content: 'Context: User is referring to a video game level they were playing.',
+      metadata: { user_reputation: 0.9, report_count: 0 },
+      policy_context: 'Policy 3.4: Threats of self-harm or violence are prohibited. Ambiguous statements should be escalated or context requested.',
+    };
+  }
+
+  if (task.id === 'hard_coordinated_behavior' && action.action === 'FLAG') {
+    return {
+      ticket_id: 'TKT-CIB-INVESTIGATION',
+      content: 'Investigation: 50 identical posts from accounts created in the last 24 hours.',
+      metadata: { user_reputation: 0.1, report_count: 100 },
+      policy_context: 'Policy 5.2: Coordinated inauthentic behavior (CIB) is confirmed when multiple accounts post identical content.',
+    };
+  }
+
+  return null;
 };
 
 // --- Components ---
@@ -171,6 +236,7 @@ export default function App() {
   const [action, setAction] = useState<Action>({ action: 'APPROVE', category: 'SAFE', reason: '' });
   const [reward, setReward] = useState<Reward | null>(null);
   const [isDone, setIsDone] = useState(false);
+  const [stepCount, setStepCount] = useState(0);
   const [view, setView] = useState<'dashboard' | 'task' | 'code'>('dashboard');
   const [history, setHistory] = useState<{ action: Action, reward: Reward }[]>([]);
   const [showKeyInfo, setShowKeyInfo] = useState(false);
@@ -185,16 +251,30 @@ export default function App() {
     });
     setReward(null);
     setIsDone(false);
+    setStepCount(0);
     setHistory([]);
     setAction({ action: 'APPROVE', category: 'SAFE', reason: '' });
     setView('task');
   };
 
   const handleStep = () => {
-    if (!currentTask) return;
-    const res = gradeAction(currentTask, action);
+    if (!currentTask || !observation) return;
+    const res = gradeAction(currentTask, action, stepCount);
+    const followUp = getFollowUpObservation(currentTask, action, stepCount);
     setReward(res);
     setHistory([...history, { action, reward: res }]);
+
+    if (followUp) {
+      setObservation(followUp);
+      setStepCount(stepCount + 1);
+      setAction(
+        currentTask.id === 'hard_coordinated_behavior'
+          ? { action: 'REJECT', category: 'OTHER', reason: '' }
+          : { action: 'APPROVE', category: 'SAFE', reason: '' }
+      );
+      return;
+    }
+
     setIsDone(true);
   };
 
@@ -566,12 +646,14 @@ class NexusSocialEnv:
     def reset(self) -> Observation:
         self.current_step = 0
         self.done = False
-        return Observation(...)
+        self.current_observation = Observation(...)
+        return self.current_observation
 
     def step(self, action: Action) -> Tuple[Observation, Reward, bool, Dict]:
-        reward = self.grader.grade(action)
-        self.done = True
-        return self.reset(), reward, self.done, {}
+        if action.action == ActionType.REQUEST_CONTEXT:
+            self.current_observation = Observation(...)
+            return self.current_observation, Reward(score=0.5, explanation="Need more context"), False, {}
+        return self.current_observation, Reward(score=1.0, explanation="Resolved"), True, {}
 
 # openenv.yaml
 name: nexussocial_moderation
@@ -594,7 +676,7 @@ tasks:
             <Terminal className="text-slate-300 w-8 h-8" />
             <RefreshCw className="text-slate-300 w-8 h-8" />
           </div>
-          <p className="text-slate-400 text-sm font-medium">Built for Google AI Studio • OpenEnv Specification v1.0.0</p>
+          <p className="text-slate-400 text-sm font-medium">Built for OpenEnv Specification v1.0.0</p>
         </div>
       </footer>
 
@@ -622,31 +704,31 @@ tasks:
                   <RefreshCw className="w-6 h-6 rotate-45" />
                 </button>
               </div>
-              <h3 className="text-2xl font-bold mb-4">API Key Configuration</h3>
+              <h3 className="text-2xl font-bold mb-4">API Configuration</h3>
               <p className="text-slate-600 mb-8 leading-relaxed">
-                To use this environment with an AI agent (like the baseline script), you must provide a <strong>Gemini API Key</strong>.
+                To run the baseline script, provide an <strong>OpenAI-compatible API key</strong> and optional endpoint overrides.
               </p>
               
               <div className="space-y-6">
                 <div className="flex gap-4">
                   <div className="bg-slate-100 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0">1</div>
                   <div>
-                    <h4 className="font-bold text-sm">Open Settings</h4>
-                    <p className="text-xs text-slate-500">Click the gear icon in the top right of AI Studio.</p>
+                    <h4 className="font-bold text-sm">Set OPENAI_API_KEY</h4>
+                    <p className="text-xs text-slate-500">Add your API key to the environment before running the baseline.</p>
                   </div>
                 </div>
                 <div className="flex gap-4">
                   <div className="bg-slate-100 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0">2</div>
                   <div>
-                    <h4 className="font-bold text-sm">Add Secret</h4>
-                    <p className="text-xs text-slate-500">Go to <strong>Secrets</strong> and add <code>GEMINI_API_KEY</code>.</p>
+                    <h4 className="font-bold text-sm">Optional endpoint override</h4>
+                    <p className="text-xs text-slate-500">Set <code>API_BASE_URL</code> and <code>MODEL_NAME</code> if you are not using the default OpenAI endpoint.</p>
                   </div>
                 </div>
                 <div className="flex gap-4">
                   <div className="bg-slate-100 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0">3</div>
                   <div>
-                    <h4 className="font-bold text-sm">Automatic Injection</h4>
-                    <p className="text-xs text-slate-500">The key will be available as <code>process.env.GEMINI_API_KEY</code>.</p>
+                    <h4 className="font-bold text-sm">Run the baseline</h4>
+                    <p className="text-xs text-slate-500">Use <code>py inference.py</code> to evaluate the model across all moderation tasks.</p>
                   </div>
                 </div>
               </div>
