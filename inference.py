@@ -22,11 +22,11 @@ def log_start(task_id: str):
     sys.stdout.flush()
 
 def log_step(step: int, action: Dict[str, Any], reward: float, done: bool):
-    print(f"[STEP] {json.dumps({'step': step, 'action': action, 'reward': reward, 'done': done})}")
+    print(f"[STEP] {json.dumps({'step': step, 'action': action, 'score': reward, 'done': done})}")
     sys.stdout.flush()
 
-def log_end(task_id: str, total_reward: float):
-    print(f"[END] {json.dumps({'task_id': task_id, 'total_reward': total_reward})}")
+def log_end(task_id: str, final_score: float):
+    print(f"[END] {json.dumps({'task_id': task_id, 'score': final_score})}")
     sys.stdout.flush()
 
 def run_task(task_id: str) -> float:
@@ -83,7 +83,9 @@ def run_task(task_id: str) -> float:
             
     # Normalize score to (0, 1) range
     final_score = total_reward / max(1, step_count)
-    final_score = float(round(max(0.1, min(0.9, float(final_score))), 2))
+    if final_score >= 0.99: final_score = 0.99
+    if final_score <= 0.01: final_score = 0.01
+    final_score = float(round(final_score, 2))
     
     log_end(task_id, final_score)
     return final_score

@@ -309,13 +309,14 @@ async def get_index():
                     const result = await response.json();
                     
                     document.getElementById('result-view').classList.remove('hidden');
-                    document.getElementById('reward-score').innerText = result.reward.score.toFixed(2);
-                    document.getElementById('reward-explanation').innerText = result.reward.explanation;
+                    document.getElementById('reward-score').innerText = result.reward.toFixed(2);
+                    document.getElementById('reward-explanation').innerText = result.info.explanation;
                     
+                    const score = result.reward;
                     const scoreEl = document.getElementById('reward-score');
-                    if (result.reward.score >= 0.8) {{
+                    if (score >= 0.8) {{
                         scoreEl.className = "text-6xl font-black tracking-tighter text-emerald-400";
-                    }} else if (result.reward.score >= 0.4) {{
+                    }} else if (score >= 0.4) {{
                         scoreEl.className = "text-6xl font-black tracking-tighter text-amber-400";
                     }} else {{
                         scoreEl.className = "text-6xl font-black tracking-tighter text-rose-400";
@@ -368,9 +369,9 @@ async def step_env(request: StepRequest):
     obs, reward, done, info = envs[request.task_id].step(request.action)
     return {
         "observation": obs,
-        "reward": reward,
+        "reward": float(reward.score),
         "done": done,
-        "info": info
+        "info": {**info, "explanation": reward.explanation}
     }
 
 @app.get("/state/{task_id}", response_model=State)

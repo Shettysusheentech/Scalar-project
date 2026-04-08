@@ -15,23 +15,23 @@ class Grader(ABC):
 class SpamGrader(Grader):
     def grade(self, action: Action, ground_truth: Dict[str, Any]) -> Reward:
         if action.action == ActionType.REJECT and action.category == CategoryType.SPAM:
-            return Reward(score=self._clamp(1.0), explanation="Correctly identified and rejected spam.")
+            return Reward(score=0.9, explanation="Correctly identified and rejected spam.")
         elif action.action == ActionType.REJECT:
-            return Reward(score=self._clamp(0.5), explanation="Correctly rejected, but category was wrong.")
+            return Reward(score=0.5, explanation="Correctly rejected, but category was wrong.")
         elif action.category == CategoryType.SPAM:
-            return Reward(score=self._clamp(0.3), explanation="Correctly identified spam, but took the wrong action.")
-        return Reward(score=self._clamp(0.0), explanation="Failed to identify spam.")
+            return Reward(score=0.3, explanation="Correctly identified spam, but took the wrong action.")
+        return Reward(score=0.1, explanation="Failed to identify spam.")
 
 class PolicyGrader(Grader):
     def grade(self, action: Action, ground_truth: Dict[str, Any]) -> Reward:
         correct_action = ground_truth.get("correct_action")
         correct_category = ground_truth.get("correct_category")
         
-        score = 0.0
+        score = 0.1
         explanation = []
         
         if action.action == correct_action:
-            score += 0.6
+            score += 0.4
             explanation.append("Correct action.")
         if action.category == correct_category:
             score += 0.4
@@ -40,15 +40,15 @@ class PolicyGrader(Grader):
         if not explanation:
             explanation.append("Incorrect action and category.")
             
-        return Reward(score=self._clamp(score), explanation=" ".join(explanation))
+        return Reward(score=float(round(score, 2)), explanation=" ".join(explanation))
 
 class ContextGrader(Grader):
     def grade(self, action: Action, ground_truth: Dict[str, Any]) -> Reward:
         if action.action == ActionType.REQUEST_CONTEXT:
-            return Reward(score=self._clamp(1.0), explanation="Correctly identified that more context was needed.")
+            return Reward(score=0.9, explanation="Correctly identified that more context was needed.")
         elif action.action == ActionType.FLAG:
-            return Reward(score=self._clamp(0.4), explanation="Flagging is a safe fallback, but requesting context is better.")
-        return Reward(score=self._clamp(0.0), explanation="Premature decision without sufficient context.")
+            return Reward(score=0.4, explanation="Flagging is a safe fallback, but requesting context is better.")
+        return Reward(score=0.1, explanation="Premature decision without sufficient context.")
 
 # Task definitions
 TASKS = {
