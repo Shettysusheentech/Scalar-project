@@ -119,7 +119,7 @@ const TASKS: Task[] = [
 // --- Grader Logic ---
 
 const clamp = (score: number): number => {
-  return Math.max(0.05, Math.min(0.95, score));
+  return Math.round(Math.max(0.1, Math.min(0.9, score)) * 100) / 100;
 };
 
 const gradeAction = (task: Task, action: Action): Reward => {

@@ -368,9 +368,9 @@ async def step_env(request: StepRequest):
     obs, reward, done, info = envs[request.task_id].step(request.action)
     return {
         "observation": obs,
-        "reward": float(reward.score),
+        "reward": reward,
         "done": done,
-        "info": {**info, "explanation": reward.explanation, "reward_obj": reward.dict()}
+        "info": info
     }
 
 @app.get("/state/{task_id}", response_model=State)

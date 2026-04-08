@@ -9,8 +9,8 @@ class Grader(ABC):
 
     def _clamp(self, score: float) -> float:
         # Ensure score is strictly between 0 and 1
-        # Using 0.05 to 0.95 to be very safe against any rounding or precision issues
-        return max(0.05, min(0.95, score))
+        # Using 0.1 to 0.9 and rounding to 2 decimal places for maximum safety
+        return float(round(max(0.1, min(0.9, float(score))), 2))
 
 class SpamGrader(Grader):
     def grade(self, action: Action, ground_truth: Dict[str, Any]) -> Reward:

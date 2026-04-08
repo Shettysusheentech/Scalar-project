@@ -83,7 +83,7 @@ def run_task(task_id: str) -> float:
             
     # Normalize score to (0, 1) range
     final_score = total_reward / max(1, step_count)
-    final_score = max(0.05, min(0.95, final_score))
+    final_score = float(round(max(0.1, min(0.9, float(final_score))), 2))
     
     log_end(task_id, final_score)
     return final_score
