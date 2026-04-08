@@ -1,8 +1,8 @@
 # OpenEnv Specification for NexusSocial Content Moderation
 name: nexussocial_moderation
 version: "1.0.0"
-description: "An OpenEnv-compatible content moderation environment for evaluating moderation agents on realistic policy scenarios."
-author: "Susheen"
+description: "A real-world content moderation environment for training and evaluating AI safety agents."
+author: "AI Studio Agent"
 license: "MIT"
 
 # Action and Observation Spaces
@@ -73,4 +73,4 @@ tasks:
     description: "Detect patterns of coordinated inauthentic behavior across multiple reports."
     difficulty: "hard"
     max_steps: 2
-    grader: "src.tasks.CoordinatedBehaviorGrader"
+    grader: "src.tasks.PolicyGrader"
