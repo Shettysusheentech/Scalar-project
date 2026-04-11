@@ -14,15 +14,17 @@ from src.tasks import clip_score
 # Environment Variables
 API_BASE_URL = os.environ.get("API_BASE_URL", "https://api.openai.com/v1")
 MODEL_NAME = os.environ.get("MODEL_NAME", "gpt-4.1-mini")
+API_KEY = os.environ.get("API_KEY")
 HF_TOKEN = os.environ.get("HF_TOKEN")
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 BENCHMARK_NAME = "nexussocial_moderation"
 
 client = None
-if HF_TOKEN or OPENAI_API_KEY:
+CLIENT_API_KEY = API_KEY or HF_TOKEN or OPENAI_API_KEY
+if CLIENT_API_KEY:
     client = OpenAI(
         base_url=API_BASE_URL,
-        api_key=HF_TOKEN or OPENAI_API_KEY,
+        api_key=CLIENT_API_KEY,
     )
 
 
@@ -115,11 +117,8 @@ def choose_model_action(task_id: str, observation) -> Action:
 
 
 def choose_action(task_id: str, observation, step_count: int, mode: str) -> Action:
-    if mode == "openai" and client is not None:
-        try:
-            return choose_model_action(task_id, observation)
-        except Exception as exc:
-            print(f"Falling back to local baseline for {task_id}: {exc}", file=sys.stderr)
+    if mode == "openai":
+        return choose_model_action(task_id, observation)
 
     return choose_heuristic_action(task_id, observation, step_count)
 
@@ -178,9 +177,15 @@ def write_output(path: str, episodes: List[Dict[str, Any]]) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="NexusSocial OpenEnv inference runner")
-    parser.add_argument("--mode", choices=["heuristic", "openai"], default="heuristic")
+    parser.add_argument("--mode", choices=["heuristic", "openai"], default="openai")
     parser.add_argument("--output", help="Optional path to write a JSON score summary")
     args = parser.parse_args()
+
+    if args.mode == "openai":
+        if not os.environ.get("API_BASE_URL"):
+            raise ValueError("API_BASE_URL environment variable is required for openai mode")
+        if not API_KEY:
+            raise ValueError("API_KEY environment variable is required for openai mode")
 
     tasks = [
         "easy_spam_detection",
