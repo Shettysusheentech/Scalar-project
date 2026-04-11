@@ -35,6 +35,10 @@ class Reward(BaseModel):
     score: float = Field(..., gt=0.0, lt=1.0)
     explanation: str
 
+    @property
+    def value(self) -> float:
+        return self.score
+
 class State(BaseModel):
     current_ticket_id: str
     history: List[Dict]
