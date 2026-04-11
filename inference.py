@@ -55,9 +55,12 @@ def log_step(step: int, action: Action, reward: float, done: bool, error: str | 
     sys.stdout.flush()
 
 
-def log_end(success: bool, step_count: int, rewards: List[float]):
+def log_end(success: bool, step_count: int, score: float, rewards: List[float]):
     rewards_blob = ",".join(f"{clip_score(reward):.2f}" for reward in rewards)
-    print(f"[END] success={format_bool(success)} steps={step_count} rewards={rewards_blob}")
+    print(
+        f"[END] success={format_bool(success)} steps={step_count} "
+        f"score={clip_score(score):.3f} rewards={rewards_blob}"
+    )
     sys.stdout.flush()
 
 
@@ -156,7 +159,7 @@ def run_task(task_id: str, mode: str) -> Dict[str, Any]:
         print(f"Task {task_id} failed: {exc}", file=sys.stderr)
 
     final_score = clip_score(total_reward / max(1, step_count)) if step_count else clip_score(0.01)
-    log_end(success, step_count, rewards)
+    log_end(success, step_count, final_score, rewards)
     return {
         "task_id": task_id,
         "success": success,
