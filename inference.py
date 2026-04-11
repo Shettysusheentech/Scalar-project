@@ -118,7 +118,10 @@ def choose_model_action(task_id: str, observation) -> Action:
 
 def choose_action(task_id: str, observation, step_count: int, mode: str) -> Action:
     if mode == "openai":
-        return choose_model_action(task_id, observation)
+        try:
+            return choose_model_action(task_id, observation)
+        except Exception as exc:
+            print(f"Falling back to heuristic policy for {task_id}: {exc}", file=sys.stderr)
 
     return choose_heuristic_action(task_id, observation, step_count)
 
